@@ -11,7 +11,7 @@ public class Room implements Serializable {
     private int roomNumber;
     private RoomType roomType;
     private double price;
-    private List<BookingPeriod> bookings = new ArrayList<>();   // ← Fixed: initialized here
+    private List<BookingPeriod> bookings = new ArrayList<>(); // ← Fixed: initialized here
 
     // Constructors
     public Room(int roomNumber, RoomType roomType) {
@@ -26,9 +26,17 @@ public class Room implements Serializable {
         this.price = price;
     }
 
-    public int getRoomNumber() { return roomNumber; }
-    public RoomType getRoomType() { return roomType; }
-    public double getPrice() { return price; }
+    public int getRoomNumber() {
+        return roomNumber;
+    }
+
+    public RoomType getRoomType() {
+        return roomType;
+    }
+
+    public double getPrice() {
+        return price;
+    }
 
     // Check availability for a date range (new logic)
     public boolean isAvailableFor(LocalDate checkIn, LocalDate checkOut) {
@@ -45,16 +53,13 @@ public class Room implements Serializable {
         bookings.add(new BookingPeriod(checkIn, checkOut));
     }
 
-    // Add this to Room.java
-    public void setAvailable(boolean available) {
-        if (available) {
-            this.bookings.clear();
-        }
+    // Check if the room is available TODAY
+    public boolean isAvailable() {
+        return isAvailableFor(LocalDate.now(), LocalDate.now().plusDays(1));
     }
 
-    // Legacy method for dashboard (kept for compatibility)
-    public boolean isAvailable() {
-        return bookings.isEmpty();   // No bookings = fully available
+    public void removeBooking(LocalDate in, LocalDate out) {
+        bookings.removeIf(p -> p.checkIn.equals(in) && p.checkOut.equals(out));
     }
 
     @Override
@@ -75,7 +80,8 @@ public class Room implements Serializable {
 
     // Add this to Room.java
     public String getBookingSchedule() {
-        if (bookings.isEmpty()) return "Available";
+        if (bookings.isEmpty())
+            return "Available";
 
         StringBuilder sb = new StringBuilder();
         java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("MMM dd");
@@ -84,7 +90,8 @@ public class Room implements Serializable {
             sb.append(bookings.get(i).checkIn.format(fmt))
                     .append(" to ")
                     .append(bookings.get(i).checkOut.format(fmt));
-            if (i < bookings.size() - 1) sb.append(", ");
+            if (i < bookings.size() - 1)
+                sb.append(", ");
         }
         return sb.toString();
     }

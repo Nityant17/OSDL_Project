@@ -24,7 +24,6 @@ public class CleaningThread extends Thread {
         } catch (InterruptedException e) {
             System.out.println("[com.nityant.hotel.CleaningThread] Interrupted!");
         }
-        room.setAvailable(true);
         System.out.println("[com.nityant.hotel.CleaningThread] com.nityant.hotel.Room " + room.getRoomNumber()
                 + " is now available!");
         if (onComplete != null)
