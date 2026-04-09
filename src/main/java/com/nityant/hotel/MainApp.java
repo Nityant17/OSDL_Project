@@ -8,6 +8,8 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
+import javafx.scene.shape.SVGPath;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,12 +38,23 @@ public class MainApp extends Application {
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        Tab tabDash = new Tab("🏠 Dashboard", buildDashboard());
-        Tab tabRooms = new Tab("🛏 Rooms", buildRoomsTab());
-        Tab tabBook = new Tab("📋 Booking", buildBookingTab());
-        Tab tabServ = new Tab("🛎 Services", buildServicesTab());
-        Tab tabCust = new Tab("👤 Customers", buildCustomersTab());
-        Tab tabLedger = new Tab("📖 Ledger", buildLedgerTab());
+        Tab tabDash = new Tab("Dashboard", buildDashboard());
+        tabDash.setGraphic(createSVGIcon("M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"));
+        
+        Tab tabRooms = new Tab("Rooms", buildRoomsTab());
+        tabRooms.setGraphic(createSVGIcon("M7 5H3c-1.1 0-2 .9-2 2v10h2v-2h18v2h2V7c0-1.1-.9-2-2-2h-4V4H7v1zm14 10H3V7h18v8z"));
+        
+        Tab tabBook = new Tab("Booking", buildBookingTab());
+        tabBook.setGraphic(createSVGIcon("M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V9h10v2z"));
+        
+        Tab tabServ = new Tab("Services", buildServicesTab());
+        tabServ.setGraphic(createSVGIcon("M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"));
+        
+        Tab tabCust = new Tab("Customers", buildCustomersTab());
+        tabCust.setGraphic(createSVGIcon("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"));
+        
+        Tab tabLedger = new Tab("Ledger", buildLedgerTab());
+        tabLedger.setGraphic(createSVGIcon("M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"));
 
         tabPane.getTabs().addAll(tabDash, tabRooms, tabBook, tabServ, tabCust, tabLedger);
 
@@ -58,6 +71,7 @@ public class MainApp extends Application {
     // ====================== Dashboard ======================
     private VBox buildDashboard() {
         Label title = new Label("Nityant's Grand Hotel");
+        title.setGraphic(createSVGIcon("M12 3L2 12h3v8h14v-8h3L12 3zm0 10c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"));
         title.getStyleClass().add("heading-label");
         title.setStyle("-fx-font-size: 28px;");
 
@@ -118,7 +132,10 @@ public class MainApp extends Application {
         cbType.setPromptText("Select Room Type");
 
         Button btnAdd = new Button("Add Room"); btnAdd.getStyleClass().add("action-btn");
+        btnAdd.setGraphic(createSVGIcon("M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"));
+
         Button btnRemove = new Button("Remove Room"); btnRemove.getStyleClass().add("danger-btn");
+        btnRemove.setGraphic(createSVGIcon("M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"));
 
         GridPane form = createGrid(
                 fieldLabel("Room Number:"), tfRoomNo,
@@ -165,6 +182,7 @@ public class MainApp extends Application {
         });
 
         Label heading = new Label("Room Management"); heading.getStyleClass().add("heading-label");
+        heading.setGraphic(createSVGIcon("M7 5H3c-1.1 0-2 .9-2 2v10h2v-2h18v2h2V7c0-1.1-.9-2-2-2h-4V4H7v1zm14 10H3V7h18v8z"));
         VBox root = createGlassRoot(heading, form, table);
         VBox.setVgrow(table, Priority.ALWAYS);
         return root;
@@ -191,6 +209,7 @@ public class MainApp extends Application {
         cbMeal.setValue("None - ₹0");
 
         Button btnBook = new Button("Book Room"); btnBook.getStyleClass().add("action-btn");
+        btnBook.setGraphic(createSVGIcon("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"));
         Label lblPreview = new Label("Select room and dates..."); lblPreview.getStyleClass().add("sub-label");
 
         GridPane grid = new GridPane();
@@ -238,6 +257,7 @@ public class MainApp extends Application {
         });
 
         Label heading = new Label("Room Booking"); heading.getStyleClass().add("heading-label");
+        heading.setGraphic(createSVGIcon("M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V9h10v2z"));
         return createGlassRoot(heading, grid);
     }
 
@@ -250,6 +270,7 @@ public class MainApp extends Application {
         cbServ.setPromptText("Select Service");
         Button btnAddServ = new Button("Add Service to Room");
         btnAddServ.getStyleClass().add("action-btn");
+        btnAddServ.setGraphic(createSVGIcon("M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"));
 
         GridPane form = createGrid(
                 fieldLabel("Customer ID:"), tfCid,
@@ -259,6 +280,7 @@ public class MainApp extends Application {
 
         Label heading = new Label("Add Services for Active Guests");
         heading.getStyleClass().add("heading-label");
+        heading.setGraphic(createSVGIcon("M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"));
 
         btnAddServ.setOnAction(e -> {
             try {
@@ -290,6 +312,7 @@ public class MainApp extends Application {
 
         TextField tfCid = new TextField(); tfCid.setPromptText("Customer ID to Checkout");
         Button btnCheckout = new Button("Checkout & Auto-Bill"); btnCheckout.getStyleClass().add("danger-btn");
+        btnCheckout.setGraphic(createSVGIcon("M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"));
 
         GridPane checkoutBar = createGrid(fieldLabel("Customer ID:"), tfCid, btnCheckout, new Label());
 
@@ -324,6 +347,7 @@ public class MainApp extends Application {
         });
 
         Label heading = new Label("Active Guests & Checkout"); heading.getStyleClass().add("heading-label");
+        heading.setGraphic(createSVGIcon("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"));
         VBox root = createGlassRoot(heading, checkoutBar, table);
         VBox.setVgrow(table, Priority.ALWAYS);
         return root;
@@ -352,6 +376,7 @@ public class MainApp extends Application {
         HBox.setHgrow(table, Priority.ALWAYS);
 
         Label heading = new Label("Past Checkouts & Invoices"); heading.getStyleClass().add("heading-label");
+        heading.setGraphic(createSVGIcon("M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"));
         VBox root = createGlassRoot(heading, split);
         VBox.setVgrow(split, Priority.ALWAYS);
         return root;
@@ -379,6 +404,15 @@ public class MainApp extends Application {
 
     private Label fieldLabel(String t) { Label l = new Label(t); l.setPrefWidth(130); return l; }
     private void alert(Alert.AlertType t, String m) { new Alert(t, m).showAndWait(); }
+
+    private SVGPath createSVGIcon(String pathContent) {
+        SVGPath svg = new SVGPath();
+        svg.setContent(pathContent);
+        svg.setFill(Color.web("#38bdf8")); // Premium cyan accent
+        svg.setScaleX(0.7);
+        svg.setScaleY(0.7);
+        return svg;
+    }
 
     public static void main(String[] args) { launch(args); }
 }
