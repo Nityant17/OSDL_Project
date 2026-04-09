@@ -14,17 +14,17 @@ import java.util.HashMap;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import javafx.beans.value.ChangeListener;
-import javafx.scene.control.DatePicker;
-import javafx.scene.control.DateCell;
+
 /**
  * MainApp - JavaFX entry point for Nityant's Hotel Management System.
- * Clean UI with proper labels and professional appearance.
+ * Clean UI with proper labels, professional appearance, and historical billing.
  */
 public class MainApp extends Application {
 
     // Shared data
     private ArrayList<Room> rooms = HotelManagement.loadRooms();
     private ArrayList<Customer> customers = HotelManagement.loadCustomers();
+    private ArrayList<Bill> pastBills = HotelManagement.loadBills(); // <-- NEW: Permanent ledger
     private HashMap<Integer, Customer> roomMap = new HashMap<>();
 
     // Observable lists for TableView
@@ -55,7 +55,7 @@ public class MainApp extends Application {
         tabPane.getSelectionModel().selectedItemProperty().addListener(
                 (obs, o, n) -> refreshDashboard());
 
-        Scene scene = new Scene(tabPane, 1000, 650);
+        Scene scene = new Scene(tabPane, 1100, 700); // Slightly wider for new columns
         scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
 
         stage.setTitle("Nityant's Hotel Management System");
@@ -94,7 +94,8 @@ public class MainApp extends Application {
 
     private void refreshDashboard() {
         long avail = rooms.stream().filter(Room::isAvailable).count();
-        double rev = customers.stream().mapToDouble(Customer::getTotalBill).sum();
+        // <-- NEW: Revenue calculated from ALL time historical bills, not just current guests
+        double rev = pastBills.stream().mapToDouble(Bill::getGrandTotal).sum();
 
         if (lblTotalRooms != null) {
             lblTotalRooms.setText(String.valueOf(rooms.size()));
@@ -148,7 +149,8 @@ public class MainApp extends Application {
         TableColumn<Room, Integer> colNo = col("Room No", "roomNumber");
         TableColumn<Room, String> colType = col("Type", "roomType");
         TableColumn<Room, Double> colPri = col("Price/Night", "price");
-        TableColumn<Room, Boolean> colAv = col("Available", "available");
+        // <-- NEW: Uses getBookingSchedule() instead of boolean isAvailable
+        TableColumn<Room, String> colAv = col("Booking Status", "bookingSchedule");
 
         table.getColumns().addAll(colNo, colType, colPri, colAv);
 
@@ -228,27 +230,18 @@ public class MainApp extends Application {
 
     // ====================== Booking Tab ======================
     private VBox buildBookingTab() {
-        TextField tfCid = new TextField();
-        tfCid.setPromptText("Customer ID");
+        TextField tfCid = new TextField();      tfCid.setPromptText("Customer ID");
+        TextField tfName = new TextField();     tfName.setPromptText("Customer Name");
+        TextField tfContact = new TextField();  tfContact.setPromptText("Contact Number (10 digits)");
+        TextField tfRoom = new TextField();     tfRoom.setPromptText("Room Number");
 
-        TextField tfName = new TextField();
-        tfName.setPromptText("Customer Name");
-
-        TextField tfContact = new TextField();
-        tfContact.setPromptText("Contact Number (10 digits)");
-
-        TextField tfRoom = new TextField();
-        tfRoom.setPromptText("Room Number");
-
-        // Date Pickers
         DatePicker dpCheckIn = new DatePicker();
         dpCheckIn.setPromptText("Check-in Date");
-        dpCheckIn.setValue(LocalDate.now().plusDays(1)); // default tomorrow
+        dpCheckIn.setValue(LocalDate.now().plusDays(1));
 
         DatePicker dpCheckOut = new DatePicker();
         dpCheckOut.setPromptText("Check-out Date");
 
-        // Disable past dates for Check-in
         dpCheckIn.setDayCellFactory(picker -> new DateCell() {
             @Override
             public void updateItem(LocalDate date, boolean empty) {
@@ -260,30 +253,27 @@ public class MainApp extends Application {
         Button btnBook = new Button("Book Room");
         btnBook.getStyleClass().add("action-btn");
 
-        Label lblPreview = new Label("Select room and dates to see details.");
+        Label lblPreview = new Label("Select room and dates to see availability.");
         lblPreview.getStyleClass().add("sub-label");
         lblPreview.setWrapText(true);
 
         GridPane grid = new GridPane();
-        grid.setHgap(12);
-        grid.setVgap(12);
+        grid.setHgap(12); grid.setVgap(12);
         grid.setPadding(new Insets(10));
 
         grid.addRow(0, fieldLabel("Customer ID:"), tfCid);
         grid.addRow(1, fieldLabel("Customer Name:"), tfName);
         grid.addRow(2, fieldLabel("Contact:"), tfContact);
         grid.addRow(3, fieldLabel("Room Number:"), tfRoom);
-        grid.addRow(4, fieldLabel("Check-in Date:"), dpCheckIn);
-        grid.addRow(5, fieldLabel("Check-out Date:"), dpCheckOut);
+        grid.addRow(4, fieldLabel("Check-in:"), dpCheckIn);
+        grid.addRow(5, fieldLabel("Check-out:"), dpCheckOut);
         grid.add(btnBook, 1, 6);
         grid.add(lblPreview, 0, 7, 2, 1);
 
-        // Live preview when room or dates change
-        ChangeListener<Object> previewListener = (obs, old, newVal) -> updateBookingPreview(tfRoom, dpCheckIn, dpCheckOut, lblPreview);
-
-        tfRoom.textProperty().addListener(previewListener);
-        dpCheckIn.valueProperty().addListener(previewListener);
-        dpCheckOut.valueProperty().addListener(previewListener);
+        ChangeListener<Object> listener = (obs, old, newVal) -> updateBookingPreview(tfRoom, dpCheckIn, dpCheckOut, lblPreview);
+        tfRoom.textProperty().addListener(listener);
+        dpCheckIn.valueProperty().addListener(listener);
+        dpCheckOut.valueProperty().addListener(listener);
 
         btnBook.setOnAction(e -> {
             try {
@@ -292,20 +282,15 @@ public class MainApp extends Application {
                 String cont = tfContact.getText().trim();
                 int rno = Integer.parseInt(tfRoom.getText());
 
-                if (name.isEmpty() || cont.isEmpty()) {
-                    alert(Alert.AlertType.WARNING, "Please fill all fields.");
+                LocalDate checkIn = dpCheckIn.getValue();
+                LocalDate checkOut = dpCheckOut.getValue();
+
+                if (name.isEmpty() || cont.isEmpty() || checkIn == null || checkOut == null) {
+                    alert(Alert.AlertType.WARNING, "Please fill all fields and select dates.");
                     return;
                 }
                 if (cont.length() != 10 || !cont.matches("\\d+")) {
                     alert(Alert.AlertType.ERROR, "Contact number must be exactly 10 digits.");
-                    return;
-                }
-
-                LocalDate checkIn = dpCheckIn.getValue();
-                LocalDate checkOut = dpCheckOut.getValue();
-
-                if (checkIn == null || checkOut == null) {
-                    alert(Alert.AlertType.ERROR, "Please select both Check-in and Check-out dates.");
                     return;
                 }
                 if (checkOut.isBefore(checkIn) || checkOut.isEqual(checkIn)) {
@@ -313,25 +298,28 @@ public class MainApp extends Application {
                     return;
                 }
 
-                long days = ChronoUnit.DAYS.between(checkIn, checkOut);
-
                 Room r = HotelManagement.findRoom(rooms, rno);
-                if (r == null || !r.isAvailable()) {
-                    alert(Alert.AlertType.ERROR, "Room unavailable.");
+                if (r == null) {
+                    alert(Alert.AlertType.ERROR, "Room not found.");
                     return;
                 }
-
+                if (!r.isAvailableFor(checkIn, checkOut)) {
+                    alert(Alert.AlertType.ERROR, "Room is not available for the selected dates.");
+                    return;
+                }
                 if (HotelManagement.findCustomer(customers, cid) != null) {
                     alert(Alert.AlertType.ERROR, "Customer ID already exists.");
                     return;
                 }
 
-                r.setAvailable(false);
-                roomObs.set(roomObs.indexOf(r), r);
+                r.book(checkIn, checkOut);
+                roomObs.set(roomObs.indexOf(r), r); // Refresh table
 
+                long days = ChronoUnit.DAYS.between(checkIn, checkOut);
                 double totalBeforeTax = r.getPrice() * days;
-                Customer c = new Customer(cid, name, cont, rno, (int) days, totalBeforeTax);
 
+                // <-- NEW: Passes checkIn and checkOut to the Customer constructor
+                Customer c = new Customer(cid, name, cont, rno, (int) days, totalBeforeTax, checkIn, checkOut);
                 customers.add(c);
                 customerObs.add(c);
                 roomMap.put(rno, c);
@@ -339,17 +327,15 @@ public class MainApp extends Application {
                 HotelManagement.saveRooms(rooms);
                 HotelManagement.saveCustomers(customers);
 
-                // Clear fields
                 tfCid.clear(); tfName.clear(); tfContact.clear(); tfRoom.clear();
                 dpCheckIn.setValue(LocalDate.now().plusDays(1));
                 dpCheckOut.setValue(null);
 
-                lblPreview.setText("Room booked successfully for " + days + " night(s)!");
+                lblPreview.setText("Booking successful for " + days + " night(s)!");
 
                 alert(Alert.AlertType.INFORMATION,
-                        "Room " + rno + " booked for " + name + ".\n" +
-                                "Period: " + checkIn + " to " + checkOut + "\n" +
-                                "Total (before tax): ₹" + totalBeforeTax);
+                        "Room " + rno + " booked successfully for " + name + "\n" +
+                                "From " + checkIn + " to " + checkOut);
 
                 refreshDashboard();
             } catch (NumberFormatException ex) {
@@ -374,12 +360,14 @@ public class MainApp extends Application {
         TableColumn<Customer, String> cn = col("Name", "name");
         TableColumn<Customer, String> cc = col("Contact", "contact");
         TableColumn<Customer, Integer> cr = col("Room", "roomNumber");
+        // <-- NEW: Added Date Columns
+        TableColumn<Customer, LocalDate> colIn = col("Check-In", "checkIn");
+        TableColumn<Customer, LocalDate> colOut = col("Check-Out", "checkOut");
         TableColumn<Customer, Integer> cd = col("Days", "daysStayed");
         TableColumn<Customer, Double> cb = col("Bill (pre-tax)", "totalBill");
 
-        table.getColumns().addAll(cid, cn, cc, cr, cd, cb);
+        table.getColumns().addAll(cid, cn, cc, cr, colIn, colOut, cd, cb);
 
-        // Checkout section
         TextField tfCid = new TextField();
         tfCid.setPromptText("Customer ID to Checkout");
 
@@ -397,6 +385,25 @@ public class MainApp extends Application {
 
                 Room r = HotelManagement.findRoom(rooms, c.getRoomNumber());
 
+                // --- NEW: AUTO-BILLING & SAVING LOGIC ---
+                Bill generatedBill = new Bill(c, r);
+                pastBills.add(generatedBill);
+                HotelManagement.saveBills(pastBills); // Save permanently to file
+
+                // Show the bill immediately in a popup window
+                Alert billAlert = new Alert(Alert.AlertType.INFORMATION);
+                billAlert.setTitle("Checkout Successful - Invoice");
+                billAlert.setHeaderText("Final Bill generated for " + c.getName());
+
+                TextArea textArea = new TextArea(generatedBill.getFormattedBill());
+                textArea.setEditable(false);
+                textArea.setStyle("-fx-font-family: monospace;"); // Makes the ASCII layout align nicely
+                textArea.setPrefWidth(400);
+                textArea.setPrefHeight(350);
+                billAlert.getDialogPane().setContent(textArea);
+                billAlert.showAndWait();
+                // ---------------------------------------
+
                 customers.remove(c);
                 customerObs.remove(c);
                 roomMap.remove(c.getRoomNumber());
@@ -407,14 +414,11 @@ public class MainApp extends Application {
                         r.setAvailable(true);
                         roomObs.set(roomObs.indexOf(r), r);
                         HotelManagement.saveRooms(rooms);
-                        alert(Alert.AlertType.INFORMATION,
-                                "Room " + r.getRoomNumber() + " cleaned and now available.");
                         refreshDashboard();
                     })).start();
                 }
 
                 tfCid.clear();
-                alert(Alert.AlertType.INFORMATION, "Checkout successful. Room cleaning in progress...");
                 refreshDashboard();
             } catch (NumberFormatException ex) {
                 alert(Alert.AlertType.ERROR, "Enter a valid Customer ID.");
@@ -436,15 +440,15 @@ public class MainApp extends Application {
     // ====================== Billing Tab ======================
     private VBox buildBillingTab() {
         TextField tfCid = new TextField();
-        tfCid.setPromptText("Enter Customer ID");
+        tfCid.setPromptText("Enter Current Customer ID");
 
-        Button btnGen = new Button("Generate Bill");
+        Button btnGen = new Button("Generate Preview Bill");
         btnGen.getStyleClass().add("success-btn");
 
         TextArea billArea = new TextArea();
         billArea.setEditable(false);
         billArea.getStyleClass().add("bill-area");
-        billArea.setPromptText("Bill will appear here...");
+        billArea.setPromptText("Preview of current customer bill will appear here...\n(Final bill is auto-generated on checkout in the Customers Tab)");
         billArea.setPrefHeight(360);
 
         btnGen.setOnAction(e -> {
@@ -452,7 +456,7 @@ public class MainApp extends Application {
                 int id = Integer.parseInt(tfCid.getText());
                 Customer c = HotelManagement.findCustomer(customers, id);
                 if (c == null) {
-                    alert(Alert.AlertType.ERROR, "Customer not found.");
+                    alert(Alert.AlertType.ERROR, "Current Customer not found. (If already checked out, bill is saved in the ledger).");
                     return;
                 }
                 Room r = HotelManagement.findRoom(rooms, c.getRoomNumber());
@@ -471,7 +475,7 @@ public class MainApp extends Application {
         HBox top = new HBox(12, tfCid, btnGen);
         top.setAlignment(Pos.CENTER_LEFT);
 
-        Label heading = new Label("Billing & Invoice");
+        Label heading = new Label("Active Guest Billing Preview");
         heading.getStyleClass().add("heading-label");
 
         VBox root = new VBox(15, heading, top, billArea);
@@ -504,33 +508,35 @@ public class MainApp extends Application {
 
     private void updateBookingPreview(TextField tfRoom, DatePicker dpIn, DatePicker dpOut, Label preview) {
         if (tfRoom.getText().isEmpty() || dpIn.getValue() == null || dpOut.getValue() == null) {
-            preview.setText("Select room and dates to see details.");
+            preview.setText("Select room and dates to check availability.");
             return;
         }
 
         try {
             int rno = Integer.parseInt(tfRoom.getText());
             Room r = HotelManagement.findRoom(rooms, rno);
-
             if (r == null) {
                 preview.setText("Room " + rno + " not found.");
                 return;
             }
-            if (!r.isAvailable()) {
-                preview.setText("Room " + rno + " is already occupied.");
-                return;
-            }
 
-            long days = ChronoUnit.DAYS.between(dpIn.getValue(), dpOut.getValue());
+            LocalDate in = dpIn.getValue();
+            LocalDate out = dpOut.getValue();
+            long days = ChronoUnit.DAYS.between(in, out);
+
             if (days <= 0) {
                 preview.setText("Check-out must be after Check-in.");
                 return;
             }
 
-            preview.setText("Room " + rno + " | " + r.getRoomType() +
-                    " | ₹" + r.getPrice() + "/night × " + days + " nights");
+            if (r.isAvailableFor(in, out)) {
+                preview.setText("Room " + rno + " | " + r.getRoomType() +
+                        " | ₹" + r.getPrice() + "/night × " + days + " nights → Available");
+            } else {
+                preview.setText("Room " + rno + " is NOT available for the selected dates.");
+            }
         } catch (Exception ignored) {
-            preview.setText("Select room and dates to see details.");
+            preview.setText("Select room and dates to check availability.");
         }
     }
 }

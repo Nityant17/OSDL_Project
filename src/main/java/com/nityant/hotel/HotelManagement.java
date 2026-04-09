@@ -11,7 +11,7 @@ public class HotelManagement {
 
     private static final String ROOMS_FILE     = "rooms.dat";
     private static final String CUSTOMERS_FILE = "customers.dat";
-
+    private static final String BILLS_FILE = "bills.dat";
     // ── Rooms ────────────────────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
@@ -51,6 +51,23 @@ public class HotelManagement {
             oos.writeObject(customers);
         } catch (IOException e) {
             System.err.println("Error saving customers: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static ArrayList<Bill> loadBills() {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(BILLS_FILE))) {
+            return (ArrayList<Bill>) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            return new ArrayList<>();
+        }
+    }
+
+    public static void saveBills(ArrayList<Bill> bills) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(BILLS_FILE))) {
+            oos.writeObject(bills);
+        } catch (IOException e) {
+            System.err.println("Error saving bills: " + e.getMessage());
         }
     }
 

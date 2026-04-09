@@ -18,8 +18,8 @@ public class DeluxeRoom extends Room implements Serializable {
     public boolean hasWifi()      { return wifi; }
     public boolean hasBreakfast() { return breakfast; }
 
+    // Removed displayDeluxeFeatures() and displayRoom() call since we no longer use console display
     public void displayDeluxeFeatures() {
-        super.displayRoom();
         System.out.println("  [Deluxe] WiFi: " + wifi + " | Breakfast: " + breakfast);
     }
 
