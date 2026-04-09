@@ -2,24 +2,30 @@ package com.nityant.hotel;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.HashMap;
 
 public class Customer implements Serializable {
-    private static final long serialVersionUID = 5L; // Incremented version
+    private static final long serialVersionUID = 6L; // Incremented version
 
     private int customerId;
     private String name;
     private String contact;
     private int roomNumber;
     private int daysStayed;
-    private double totalBill;
+    private double totalBill; // Not heavily used as Bill.java handles calculation now, but kept for compatibility
 
-    // New fields
     private LocalDate checkIn;
     private LocalDate checkOut;
 
+    // New fields for Meals and Services
+    private String mealPlan;
+    private double mealPrice; // Daily price
+    private HashMap<String, Integer> servicesUsed;
+
     public Customer(int customerId, String name, String contact,
                     int roomNumber, int daysStayed, double totalBill,
-                    LocalDate checkIn, LocalDate checkOut) {
+                    LocalDate checkIn, LocalDate checkOut,
+                    String mealPlan, double mealPrice) {
         this.customerId  = customerId;
         this.name        = name;
         this.contact     = contact;
@@ -28,6 +34,13 @@ public class Customer implements Serializable {
         this.totalBill   = totalBill;
         this.checkIn     = checkIn;
         this.checkOut    = checkOut;
+        this.mealPlan    = mealPlan;
+        this.mealPrice   = mealPrice;
+        this.servicesUsed = new HashMap<>();
+    }
+
+    public void addService(String serviceName) {
+        servicesUsed.put(serviceName, servicesUsed.getOrDefault(serviceName, 0) + 1);
     }
 
     public int       getCustomerId() { return customerId; }
@@ -38,4 +51,8 @@ public class Customer implements Serializable {
     public double    getTotalBill()  { return totalBill; }
     public LocalDate getCheckIn()    { return checkIn; }
     public LocalDate getCheckOut()   { return checkOut; }
+    
+    public String    getMealPlan()   { return mealPlan; }
+    public double    getMealPrice()  { return mealPrice; }
+    public HashMap<String, Integer> getServicesUsed() { return servicesUsed; }
 }
