@@ -29,8 +29,9 @@ public class MainApp extends Application {
     private ObservableList<Room> roomObs = FXCollections.observableArrayList(rooms);
     private ObservableList<Customer> customerObs = FXCollections.observableArrayList(customers);
     private ObservableList<Bill> billObs = FXCollections.observableArrayList(pastBills);
+    private ObservableList<ServiceRecord> serviceObs = FXCollections.observableArrayList();
 
-    private Label lblTotalRooms, lblAvailable, lblOccupied, lblTotalRevenue;
+    private Label lblTotalRooms, lblAvailable, lblOccupied, lblTotalRevenue, lblDemand;
 
     @Override
     public void start(Stage stage) {
@@ -40,6 +41,7 @@ public class MainApp extends Application {
 
         tabs.getTabs().addAll(
             tab("Dashboard", "M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z", buildDashboard()),
+            tab("Floor Plan", "M4 11h5v5H4zm0 7h5v5H4zm7-7h5v5h-5zm0 7h5v5h-5zm7-7h5v5h-5zm0 7h5v5h-5zM4 4h16v5H4z", buildFloorPlanTab()),
             tab("Rooms", "M7 5H3c-1.1 0-2 .9-2 2v10h2v-2h18v2h2V7c0-1.1-.9-2-2-2h-4V4H7v1zm14 10H3V7h18v8z", buildRoomsTab()),
             tab("Booking", "M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V9h10v2z", buildBookingTab()),
             tab("Services", "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z", buildServicesTab()),
@@ -68,7 +70,8 @@ public class MainApp extends Application {
             statCard(lblTotalRooms = statNum("0"), "Total Rooms"),
             statCard(lblAvailable = statNum("0"), "Available"),
             statCard(lblOccupied = statNum("0"), "Occupied"),
-            statCard(lblTotalRevenue = statNum("₹0"), "Total Revenue")
+            statCard(lblTotalRevenue = statNum("₹0"), "Total Revenue"),
+            statCard(lblDemand = statNum("Low"), "Market Demand")
         );
         cards.setAlignment(Pos.CENTER);
         VBox root = glass(title, new Label("Management Dashboard - Overview"), cards);
@@ -79,12 +82,34 @@ public class MainApp extends Application {
     private void refreshDashboard() {
         long avail = rooms.stream().filter(Room::isAvailable).count();
         double rev = pastBills.stream().mapToDouble(Bill::getGrandTotal).sum();
+        double occupancy = rooms.isEmpty() ? 0 : (double)(rooms.size() - avail) / rooms.size();
+        
         if (lblTotalRooms != null) {
             lblTotalRooms.setText(String.valueOf(rooms.size()));
             lblAvailable.setText(String.valueOf(avail));
             lblOccupied.setText(String.valueOf(rooms.size() - avail));
             lblTotalRevenue.setText(String.format("₹%.0f", rev));
+            
+            if (occupancy > 0.8) { lblDemand.setText("Surge"); lblDemand.setTextFill(Color.web("#f87171")); }
+            else if (occupancy < 0.2) { lblDemand.setText("Discount"); lblDemand.setTextFill(Color.web("#4ade80")); }
+            else { lblDemand.setText("Normal"); lblDemand.setTextFill(Color.web("#38bdf8")); }
         }
+        refreshServicesTable();
+    }
+
+    private void refreshServicesTable() {
+        serviceObs.clear();
+        for (Customer c : customers) {
+            c.getServicesUsed().forEach((s, q) -> serviceObs.add(new ServiceRecord(c.getName(), c.getRoomNumber(), s, q)));
+        }
+    }
+
+    private double getDynamicMultiplier() {
+        long avail = rooms.stream().filter(Room::isAvailable).count();
+        double occupancy = rooms.isEmpty() ? 0 : (double)(rooms.size() - avail) / rooms.size();
+        if (occupancy > 0.8) return 1.25;
+        if (occupancy < 0.2) return 0.90;
+        return 1.0;
     }
 
     private VBox statCard(Label num, String d) {
@@ -126,7 +151,60 @@ public class MainApp extends Application {
         });
 
         Label h = new Label("Room Management", createSVG("M7 5H3c-1.1 0-2 .9-2 2v10h2v-2h18v2h2V7c0-1.1-.9-2-2-2h-4V4H7v1zm14 10H3V7h18v8z")); h.getStyleClass().add("heading-label");
-        VBox root = glass(h, form, table); VBox.setVgrow(table, Priority.ALWAYS); return root;
+        
+        Label pricingInfo = new Label("💡 Prices adjust dynamically based on occupancy: <20% (-10%), >80% (+25%).");
+        pricingInfo.setStyle("-fx-text-fill: #94a3b8; -fx-font-style: italic;");
+
+        VBox root = glass(h, pricingInfo, form, table); VBox.setVgrow(table, Priority.ALWAYS); return root;
+    }
+
+    // ====================== Floor Plan Tab ======================
+    private VBox buildFloorPlanTab() {
+        FlowPane map = new FlowPane(20, 20);
+        map.setPadding(new Insets(10));
+        map.setAlignment(Pos.TOP_LEFT);
+        
+        ScrollPane sp = new ScrollPane(map);
+        sp.setFitToWidth(true); sp.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+
+        Runnable refreshMap = () -> {
+            map.getChildren().clear();
+            for (Room r : rooms) {
+                VBox card = new VBox(8);
+                card.getStyleClass().add("stat-card");
+                card.setMinWidth(150); card.setAlignment(Pos.CENTER);
+                
+                boolean isAvail = r.isAvailable();
+                String statusMsg = isAvail ? "Available" : "Occupied";
+                String color = isAvail ? "#4ade80" : "#f87171";
+                
+                Customer c = roomMap.get(r.getRoomNumber());
+                String guestName = (c != null) ? c.getName() : "No Guest";
+                
+                Label lNo = new Label("Room " + r.getRoomNumber()); lNo.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+                Label lType = new Label(r.getRoomType().toString()); lType.setOpacity(0.7);
+                Label lStat = new Label(statusMsg); lStat.setStyle("-fx-text-fill: " + color + "; -fx-font-weight: bold;");
+                Label lGuest = new Label(guestName); lGuest.setOpacity(0.5); lGuest.setStyle("-fx-font-size: 11px;");
+
+                card.getChildren().addAll(lNo, lType, lStat, lGuest);
+                card.setStyle(card.getStyle() + "; -fx-border-color: " + color + "44; -fx-border-width: 1; -fx-border-radius: 10;");
+                
+                map.getChildren().add(card);
+            }
+        };
+
+        refreshMap.run();
+        // Hook into tab selection to refresh map
+        Platform.runLater(() -> {
+            TabPane tp = (TabPane) map.getScene().getRoot();
+            tp.getSelectionModel().selectedItemProperty().addListener((o, ol, nv) -> {
+                if (nv != null && nv.getText().equals("Floor Plan")) refreshMap.run();
+            });
+        });
+
+        Label h = new Label("Interactive Floor Plan", createSVG("M4 11h5v5H4zm0 7h5v5H4zm7-7h5v5h-5zm0 7h5v5h-5zm7-7h5v5h-5zm0 7h5v5h-5zM4 4h16v5H4z"));
+        h.getStyleClass().add("heading-label");
+        return glass(h, sp);
     }
 
     // ====================== Booking Tab ======================
@@ -154,7 +232,9 @@ public class MainApp extends Application {
                 if (name.isEmpty() || in == null || out == null || !out.isAfter(in) || r == null || !r.isAvailableFor(in, out) || HotelManagement.findCustomer(customers, Integer.parseInt(tfId.getText())) != null) { alert("Error", "Invalid details or room booked."); return; }
                 String mSel = cbM.getValue(); double mp = mSel.contains("₹500") ? 500 : mSel.contains("₹1000") ? 1000 : mSel.contains("₹1500") ? 1500 : 0;
                 r.book(in, out); roomObs.set(roomObs.indexOf(r), r);
+                double dynamicPrice = r.getPrice() * getDynamicMultiplier();
                 Customer customer = new Customer(Integer.parseInt(tfId.getText()), name, tfC.getText(), rno, (int)ChronoUnit.DAYS.between(in, out), 0, in, out, mSel.split(" -")[0], mp);
+                customer.setRoomRateAtBooking(dynamicPrice);
                 customers.add(customer); customerObs.add(customer); roomMap.put(rno, customer);
                 HotelManagement.saveRooms(rooms); HotelManagement.saveCustomers(customers);
                 alert("Success", "Booked!"); refreshDashboard();
@@ -174,19 +254,27 @@ public class MainApp extends Application {
             try {
                 Customer c = HotelManagement.findCustomer(customers, Integer.parseInt(tfI.getText()));
                 if (c == null || cbS.getValue() == null) { alert("Error", "Customer not found."); return; }
-                c.addService(cbS.getValue()); HotelManagement.saveCustomers(customers); customerObs.set(customerObs.indexOf(c), c);
+                c.addService(cbS.getValue()); HotelManagement.saveCustomers(customers); 
+                customerObs.set(customerObs.indexOf(c), c);
+                refreshServicesTable();
                 alert("Added", "Service added for " + c.getName());
             } catch (Exception ex) { alert("Error", "Invalid ID."); }
         });
+        
+        TableView<ServiceRecord> sTable = table(serviceObs, col("Guest", "guest"), col("Room", "room"), col("Service", "service"), col("Qty", "qty"));
+        
         Label h = new Label("Additional Services", createSVG("M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"));
-        return glass(h, grid(lbl("Customer ID:"), tfI, lbl("Service:"), cbS, btnS, new Label()));
+        VBox root = glass(h, grid(lbl("Customer ID:"), tfI, lbl("Service:"), cbS, btnS, new Label()), sTable);
+        VBox.setVgrow(sTable, Priority.ALWAYS); return root;
     }
 
     // ====================== Customers Tab ======================
     private VBox buildCustomersTab() {
         TableView<Customer> table = table(customerObs, col("ID", "customerId"), col("Name", "name"), col("Room", "roomNumber"), col("In", "checkIn"), col("Out", "checkOut"), col("Meal", "mealPlan"));
-        TextField tfI = new TextField(); tfI.setPromptText("ID to Checkout");
-        Button btnC = btn("Checkout", "M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z", "danger-btn");
+        TextField tfI = new TextField(); tfI.setPromptText("ID");
+        Button btnC = btn("Checkout", "M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z", "success-btn");
+        Button btnCan = btn("Cancel Booking", "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z", "danger-btn");
+
         btnC.setOnAction(e -> {
             try {
                 int id = Integer.parseInt(tfI.getText()); Customer c = HotelManagement.findCustomer(customers, id);
@@ -208,8 +296,21 @@ public class MainApp extends Application {
                 tfI.clear(); refreshDashboard();
             } catch (Exception ex) { alert("Error", "Invalid ID."); }
         });
+
+        btnCan.setOnAction(e -> {
+            try {
+                int id = Integer.parseInt(tfI.getText()); Customer c = HotelManagement.findCustomer(customers, id);
+                if (c == null) { alert("Error", "Not found."); return; }
+                if (!confirm("Cancel?", "Cancel booking for " + c.getName() + "?")) return;
+                Room r = HotelManagement.findRoom(rooms, c.getRoomNumber());
+                if (r != null) { r.removeBooking(c.getCheckIn(), c.getCheckOut()); roomObs.set(roomObs.indexOf(r), r); HotelManagement.saveRooms(rooms); }
+                customers.remove(c); customerObs.remove(c); roomMap.remove(c.getRoomNumber()); HotelManagement.saveCustomers(customers);
+                tfI.clear(); refreshDashboard(); alert("Cancelled", "Booking removed.");
+            } catch (Exception ex) { alert("Error", "Invalid ID."); }
+        });
+
         Label h = new Label("Active Guests", createSVG("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"));
-        VBox root = glass(h, grid(lbl("Customer ID:"), tfI, btnC, new Label()), table); VBox.setVgrow(table, Priority.ALWAYS); return root;
+        VBox root = glass(h, grid(lbl("Customer ID:"), tfI, btnC, btnCan), table); VBox.setVgrow(table, Priority.ALWAYS); return root;
     }
 
     // ====================== Ledger Tab ======================
@@ -229,8 +330,19 @@ public class MainApp extends Application {
     private <T> TableView<T> table(ObservableList<T> d, TableColumn... c) { TableView<T> t = new TableView<>(d); t.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); t.getColumns().addAll(c); return t; }
     private Label lbl(String t) { Label l = new Label(t); l.setPrefWidth(130); return l; }
     private void alert(String h, String m) { new Alert(Alert.AlertType.INFORMATION, m).showAndWait(); }
+    private boolean confirm(String h, String m) { 
+        Alert a = new Alert(Alert.AlertType.CONFIRMATION, m, ButtonType.YES, ButtonType.NO);
+        a.setTitle(h); return a.showAndWait().orElse(ButtonType.NO) == ButtonType.YES;
+    }
     private Button btn(String t, String p, String s) { Button b = new Button(t, createSVG(p)); b.getStyleClass().add(s); return b; }
     private SVGPath createSVG(String p) { SVGPath s = new SVGPath(); s.setContent(p); s.setFill(Color.web("#38bdf8")); s.setScaleX(0.7); s.setScaleY(0.7); return s; }
+
+    public static class ServiceRecord {
+        private String guest, service; private int room, qty;
+        public ServiceRecord(String g, int r, String s, int q) { guest=g; room=r; service=s; qty=q; }
+        public String getGuest() { return guest; } public int getRoom() { return room; }
+        public String getService() { return service; } public int getQty() { return qty; }
+    }
 
     public static void main(String[] args) { launch(args); }
 }

@@ -168,6 +168,9 @@
     -fx-padding: 20 30;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 15, 0, 0, 5);
 }
+.stat-card:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.12);
+}
 .stat-number {
     -fx-text-fill: #38bdf8;
     -fx-font-size: 32px;

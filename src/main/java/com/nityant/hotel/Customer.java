@@ -12,7 +12,8 @@ public class Customer implements Serializable {
     private String contact;
     private int roomNumber;
     private int daysStayed;
-    private double totalBill; // Not heavily used as Bill.java handles calculation now, but kept for compatibility
+    private double totalBill; 
+    private double roomRateAtBooking; 
 
     private LocalDate checkIn;
     private LocalDate checkOut;
@@ -36,8 +37,12 @@ public class Customer implements Serializable {
         this.checkOut    = checkOut;
         this.mealPlan    = mealPlan;
         this.mealPrice   = mealPrice;
+        this.roomRateAtBooking = 0; // Will be set explicitly
         this.servicesUsed = new HashMap<>();
     }
+
+    public void setRoomRateAtBooking(double rate) { this.roomRateAtBooking = rate; }
+    public double getRoomRateAtBooking() { return roomRateAtBooking; }
 
     public void addService(String serviceName) {
         servicesUsed.put(serviceName, servicesUsed.getOrDefault(serviceName, 0) + 1);

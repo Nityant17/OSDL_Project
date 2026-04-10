@@ -39,7 +39,7 @@ public class Bill implements Serializable {
         this.roomNumber = room.getRoomNumber();
         this.roomType = room.getRoomType();
         this.daysStayed = customer.getDaysStayed();
-        this.roomRatePerNight = room.getPrice();
+        this.roomRatePerNight = customer.getRoomRateAtBooking() > 0 ? customer.getRoomRateAtBooking() : room.getPrice();
         this.mealPlan = customer.getMealPlan();
         this.mealPrice = customer.getMealPrice();
         this.servicesUsed = new HashMap<>(customer.getServicesUsed()); // Copy
